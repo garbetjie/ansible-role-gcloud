@@ -1,0 +1,8 @@
+---
+-
+  name: Managed reserved addresses.
+  when: gcloud_compute_addresses|length > 0
+  with_items: "{{ gcloud_compute_addresses }}"
+  include: addresses/main.yaml
+  loop_control:
+    loop_var: address
