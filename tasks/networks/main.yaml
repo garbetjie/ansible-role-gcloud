@@ -1,0 +1,18 @@
+---
+-
+  set_fact:
+    network: "{{ item }}"
+-
+  name: "Check if network '{{ item.name }}' exists."
+  shell: gcloud beta compute networks list --format=json --filter="name = {{ network.name }}"
+  register: __gcloud_compute_existing_network__
+  changed_when: false
+-
+  include: create.yaml
+  when: __gcloud_compute_existing_network__.stdout == '[]' and network.state|default('present') == 'present'
+-
+  include: update.yaml
+  when: __gcloud_compute_existing_network__.stdout != '[]' and network.state|default('present') == 'present'
+-
+  include: delete.yaml
+  when: __gcloud_compute_existing_network__.stdout != '[]' and network.state|default('present') == 'absent'

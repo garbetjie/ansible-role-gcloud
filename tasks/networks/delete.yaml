@@ -1,0 +1,12 @@
+---
+-
+  name: "List current firewall rules for network '{{ network.name }}'."
+  register: __gcloud_compute_existing_firewall_rules__
+  shell: gcloud beta compute firewall-rules list --format=json --filter="network = {{ network.name }}"
+  changed_when: false
+-
+  name: "Delete firewall walls for network '{{ network.name }}'."
+  shell: gcloud beta compute firewall-rules delete {{ __gcloud_compute_existing_firewall_rules__.stdout|from_json|map(attribute='name')|list|join(' ') }} -q
+-
+  name: "Delete network '{{ network.name }}'."
+  shell: gcloud beta compute networks delete {{ network.name }} -q

@@ -1,0 +1,20 @@
+---
+-
+  name: "Create network '{{ network.name }}'."
+  shell: |
+    gcloud beta compute networks create {{ network.name }} \
+    {% if network.description is defined %} --description="{{ network.description }}" {% endif %} \
+    --mode="{{ network.mode|default('auto')|lower }}" \
+    {% if network.mode|default('')|lower == 'legacy' and network.range is defined %} --range="{{ network.range }}" {% endif %}
+-
+  name: "Create firewall rules for network '{{ network.name }}'."
+  when: item.state|default('present') == 'present'
+  shell: |
+    gcloud beta compute firewall-rules create {{ network.name }}-{{ item.name }} \
+    --network="{{ network.name }}" \
+    --allow {{ item.allow|join(",") }} \
+    {% if item.description is defined %} --description="{{ item.description }}" {% endif %} \
+    {% if item.source_tags|default([])|length > 0 %} --source-tags={{ item.source_tags|join(",") }} {% endif %} \
+    {% if item.source_ranges|default([])|length > 0 %} --source-ranges={{ item.source_ranges|join(",") }} {% endif %} \
+    {% if item.target_tags|default([])|length > 0 %} --target-tags={{ item.target_tags|join(",") }} {% endif %}
+  with_items: "{{ network.firewall_rules }}"

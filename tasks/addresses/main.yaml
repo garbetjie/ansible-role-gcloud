@@ -9,6 +9,7 @@
   when: __gcloud_compute_existing_address__.stdout == '[]' and address.state|default('present') == 'present'
   shell: |
     gcloud beta compute addresses create {{ address.name }} \
+    {% if address.description is defined %} --description="{{ address.description }}" {% endif %} \
     {% if address.addresses is defined %} --addresses={{ address.addresses|join(',') }} {% endif %} \
     {% if address.global|default(False) %} --global {% endif %} \
     {% if address.region is defined %} --region={{ address.region }} {% endif %}
