@@ -1,0 +1,39 @@
+---
+-
+  set_fact:
+    health_check: "{{ item }}"
+-
+  name: "Check for existing {{ health_check.type }} health check."
+  register: gcloud_compute_existing_http_health_check
+  changed_when: false
+  shell: gcloud beta compute health-checks list --format=json --filter="name = {{ health_check.name }}"
+-
+  name: "Create {{ health_check.type }} health check."
+  when: gcloud_compute_existing_http_health_check.stdout == '[]' and health_check.state|default('present') == 'present'
+  shell: |
+    gcloud beta compute health-checks create {{ health_check.type }} {{ health_check.name }} \
+    {% if health_check.description is defined %} --description="{{ health_check.description }}" {% endif %} \
+    {% if health_check.host is defined %} --host={{ health_check.host }} {% endif %} \
+    {% if health_check.port is defined %} --port={{ health_check.port }} {% endif %} \
+    {% if health_check.request_path is defined %} --request--path={{ health_check.request_path }} {% endif %} \
+    --check-interval={{ health_check.request_interval|default(10) }}s \
+    --timeout={{ health_check.timeout|default(5) }}s \
+    --unhealthy-threshold={{ health_check.unhealthy_threshold|default(2) }} \
+    --healthy-threshold={{ health_check.healthy_threshold|default(2) }}
+-
+  name: "Update {{ health_check.type }} health check."
+  when: gcloud_compute_existing_http_health_check.stdout != '[]' and health_check.state|default('present') == 'present'
+  shell: |
+    gcloud beta compute health-checks update {{ health_check.type }} {{ health_check.name }} \
+    {% if health_check.description is defined %} --description="{{ health_check.description }}" {% endif %} \
+    {% if health_check.host is defined %} --host={{ health_check.host }} {% endif %} \
+    {% if health_check.port is defined %} --port={{ health_check.port }} {% endif %} \
+    {% if health_check.request_path is defined %} --request--path={{ health_check.request_path }} {% endif %} \
+    --check-interval={{ health_check.request_interval|default(10) }}s \
+    --timeout={{ health_check.timeout|default(5) }}s \
+    --unhealthy-threshold={{ health_check.unhealthy_threshold|default(2) }} \
+    --healthy-threshold={{ health_check.healthy_threshold|default(2) }}
+-
+  name: "Delete {{ health_check.type }} health check."
+  when: gcloud_compute_existing_http_health_check.stdout != '[]' and health_check.state|default('present') == 'absent'
+  shell: gcloud beta compute health-checks delete {{ health_check.name }}

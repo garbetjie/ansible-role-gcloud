@@ -11,3 +11,8 @@
   when: gcloud_compute_networks|length > 0
   with_items: "{{ gcloud_compute_networks }}"
   include: networks/main.yaml
+-
+  name: Manage health checks
+  when: gcloud_compute_health_checks|length > 0
+  with_items: "{{ gcloud_compute_health_checks }}"
+  include: health_checks/main.yaml
