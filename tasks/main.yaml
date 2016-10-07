@@ -10,9 +10,14 @@
   name: Manage networks.
   when: gcloud_compute_networks|length > 0
   with_items: "{{ gcloud_compute_networks }}"
-  include: networks/main.yaml
+  include: networks.yaml
 -
   name: Manage health checks
   when: gcloud_compute_health_checks|length > 0
   with_items: "{{ gcloud_compute_health_checks }}"
   include: health_checks/main.yaml
+-
+  name: Manage instance groups.
+  when: gcloud_compute_instance_groups|length > 0
+  with_items: "{{ gcloud_compute_instance_groups }}"
+  include: instance_groups.yaml

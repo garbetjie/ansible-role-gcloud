@@ -1,0 +1,8 @@
+---
+-
+  name: "Set named ports on instance group {{ instance_group.name }}"
+  shell: |
+    gcloud beta compute instance-groups set-named-ports "{{ instance_group.name }}" \
+    --named-ports="{{ instance_group.named_ports|join(',') }}" \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}"{% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_group.region }}"{% endif %}

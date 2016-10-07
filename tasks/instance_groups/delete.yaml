@@ -1,0 +1,16 @@
+---
+-
+  name: "Delete managed instance group '{{ instance_group.name }}'."
+  when: instance_group.managed
+  shell: |
+    gcloud beta compute instance-groups managed delete {{ instance_group.name }} \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_group.region }}" {% endif %}
+
+-
+  name: "Delete unmanaged instance group '{{ instance_group.name }}'."
+  when: not instance_group.managed
+  shell: |
+    gcloud beta compute instance-groups unmanaged delete {{ instance_group.name }} \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_group.region }}" {% endif %}

@@ -7,12 +7,18 @@
   shell: gcloud beta compute networks list --format=json --filter="name = {{ network.name }}"
   register: __gcloud_compute_existing_network__
   changed_when: false
+
+# Create a new network.
 -
-  include: create.yaml
+  include: networks/create.yaml
   when: __gcloud_compute_existing_network__.stdout == '[]' and network.state|default('present') == 'present'
+
+# Update an existing network.
 -
-  include: update.yaml
+  include: networks/update.yaml
   when: __gcloud_compute_existing_network__.stdout != '[]' and network.state|default('present') == 'present'
+
+# Delete a network.
 -
-  include: delete.yaml
+  include: networks/delete.yaml
   when: __gcloud_compute_existing_network__.stdout != '[]' and network.state|default('present') == 'absent'
