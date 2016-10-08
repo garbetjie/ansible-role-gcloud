@@ -1,12 +1,35 @@
 ---
+
+# Manage the network itself.
+
+-
+  name: "Check whether network '{{ network.name }}' exists."
+  register: gcloud_compute_existing_network
+  shell: gcloud beta compute networks list --format=json --filter="name = {{ network.name }}"
+-
+  name: "Create network '{{ network.name }}'."
+  when: network.state|default('present') == 'present' and gcloud_compute_existing_network.stdout == '[]'
+  shell: |
+    gcloud beta compute networks create {{ network.name }} \
+    {% if network.description is defined %} --description="{{ network.description }}" {% endif %} \
+    --mode="{{ network.mode|default('auto')|lower }}" \
+    {% if network.mode|default('')|lower == 'legacy' and network.range is defined %} --range="{{ network.range }}" {% endif %}
+
+
+# Manage the firewall rules.
+
 -
   name: "List current firewall rules for network '{{ network.name }}'."
-  register: __gcloud_compute_existing_firewall_rules__
+  register: gcloud_compute_existing_firewall_rule
   shell: gcloud beta compute firewall-rules list --format=json --filter="network = {{ network.name }}"
   changed_when: false
 -
+  set_fact:
+    gcloud_compute_existing_firewall_rule: "{{ gcloud_compute_existing_firewall_rule.stdout|from_json|map(attribute='name')|list }}"
+-
   name: "Create firewall rules for network '{{ network.name }}'."
-  when: item.state|default('present') == 'present' and network.name + '-' + item.name not in __gcloud_compute_existing_firewall_rules__.stdout|from_json|map(attribute='name')|list
+  when: item.state|default('present') == 'present' and network.name + '-' + item.name not in gcloud_compute_existing_firewall_rule
+  with_items: "{{ network.firewall_rules }}"
   shell: |
     gcloud beta compute firewall-rules create {{ network.name }}-{{ item.name }} \
     --network="{{ network.name }}" \
@@ -15,10 +38,9 @@
     {% if item.source_tags|default([])|length > 0 %} --source-tags={{ item.source_tags|join(",") }} {% endif %} \
     {% if item.source_ranges|default([])|length > 0 %} --source-ranges={{ item.source_ranges|join(",") }} {% endif %} \
     {% if item.target_tags|default([])|length > 0 %} --target-tags={{ item.target_tags|join(",") }} {% endif %}
-  with_items: "{{ network.firewall_rules }}"
 -
   name: "Update firewall rules for network '{{ network.name }}'."
-  when: item.state|default('present') == 'present' and network.name + '-' + item.name in __gcloud_compute_existing_firewall_rules__.stdout|from_json|map(attribute='name')|list
+  when: item.state|default('present') == 'present' and network.name + '-' + item.name in gcloud_compute_existing_firewall_rule
   with_items: "{{ network.firewall_rules }}"
   shell: |
     gcloud beta compute firewall-rules update {{ network.name }}-{{ item.name }} \
@@ -29,18 +51,6 @@
     {% if item.target_tags|default([])|length > 0 %} --target-tags={{ item.target_tags|join(",") }} {% endif %}
 -
   name: "Remove firewall rules for network '{{ network.name }}'."
-  when: item.state|default('present') == 'absent' and network.name + '-' + item.name in __gcloud_compute_existing_firewall_rules__.stdout|from_json|map(attribute='name')|list
+  when: item.state|default('present') == 'absent' and network.name + '-' + item.name in gcloud_compute_existing_firewall_rule
   shell: gcloud beta compute firewall-rules delete {{ network.name }}-{{ item.name }}
   with_items: "{{ network.firewall_rules }}"
-
-
-#gcloud beta compute firewall-rules \
-#    {% if network.name + '-' + item.name in __firewall_rules__.stdout|from_json|map(attribute='name')|list %} \
-#      update {{ network.name }}-{{ item.name }} \
-#    {% else %} \
-#      create {{ network.name }}-{{ item.name }} --network="{{ network.name }}" \
-#    {% endif %} \
-#    --allow {{ item.allow|join(",") }} \
-#    {% if item.source_tags|default([])|length > 0 %} --source-tags={{ item.source_tags|join(",") }} {% endif %} \
-#    {% if item.source_ranges|default([])|length > 0 %} --source-ranges={{ item.source_ranges|join(",") }} {% endif %} \
-#    {% if item.target_tags|default([])|length > 0 %} --target-tags={{ item.target_tags|join(",") }} {% endif %}

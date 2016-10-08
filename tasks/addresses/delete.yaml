@@ -1,0 +1,13 @@
+---
+-
+  name: Check whether address exists.
+  register: gcloud_compute_existing_address
+  shell: gcloud beta compute addresses list --format=json --filter="name = {{ address.name }}"
+  changed_when: false
+-
+  name: "Delete reserved address {{ address.name }}."
+  when: __gcloud_compute_existing_address__.stdout != '[]' and address.state|default('present') == 'absent'
+  shell: |
+    gcloud beta compute addresses delete {{ address.name }} \
+    {% if address.global|default(False) %} --global {% endif %} \
+    {% if address.region is defined %} --region={{ address.region }} {% endif %}

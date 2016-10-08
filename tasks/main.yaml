@@ -1,16 +1,19 @@
 ---
+# Create addresse.
 -
-  name: Manage reserved addresses.
-  when: gcloud_compute_addresses|length > 0
+  name: Create reserved addresses.
   with_items: "{{ gcloud_compute_addresses }}"
-  include: addresses/main.yaml
+  when: address.state|default('present') == 'present'
+  include: addresses/create.yaml
   loop_control:
     loop_var: address
 -
   name: Manage networks.
-  when: gcloud_compute_networks|length > 0
   with_items: "{{ gcloud_compute_networks }}"
-  include: networks.yaml
+  when: network.state|default('present') == 'present'
+  include: networks/manage.yaml
+  loop_control:
+    loop_var: network
 -
   when: gcloud_compute_health_checks|length > 0
   with_items: "{{ gcloud_compute_health_checks }}"
@@ -29,3 +32,20 @@
   when: gcloud_compute_backend_services|length > 0
   with_items: "{{ gcloud_compute_backend_services }}"
   include: backend_services.yaml
+
+# Delete items.
+
+-
+  name: Delete networks.
+  with_items: "{{ gcloud_compute_networks }}"
+  when: network.state|default('present') == 'absent'
+  include: networks/delete.yaml
+  loop_control:
+    loop_var: network
+-
+  name: Delete reserved addresses.
+  with_items: "{{ gcloud_compute_addresses }}"
+  when: address.state|default('present') == 'absent'
+  include: addresses/delete.yaml
+  loop_control:
+    loop_var: address
