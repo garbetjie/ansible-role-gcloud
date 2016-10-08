@@ -1,14 +1,11 @@
 ---
 -
-  set_fact:
-    http_health_check: "{{ item }}"
--
-  name: Check if existing HTTP health check exists.
+  name: "Check if HTTP health check '{{ http_health_check.name }}' exists."
   register: gcloud_compute_existing_http_health_checks
   shell: gcloud beta compute http-health-checks list --format json --filter="name = {{ http_health_check.name }}"
 -
   name: "Create health check '{{ http_health_check.name }}'."
-  when: http_health_check.state|default('present') == 'present' and gcloud_compute_existing_http_health_checks.stdout == '[]'
+  when: gcloud_compute_existing_http_health_checks.stdout == '[]'
   shell: |
     gcloud beta compute http-health-checks create {{ http_health_check.name }} \
     --check-interval="{{ http_health_check.check_interval|default('5s') }}" \
@@ -21,7 +18,7 @@
     --timeout={{ http_health_check.timeout|default('5s') }}
 -
   name: "Update health check '{{ http_health_check.name }}'."
-  when: http_health_check.state|default('present') == 'present' and gcloud_compute_existing_http_health_checks.stdout != '[]'
+  when: gcloud_compute_existing_http_health_checks.stdout != '[]'
   shell: |
     gcloud beta compute http-health-checks update {{ http_health_check.name }} \
     {% if http_health_check.check_interval is defined %} --check-interval="{{ http_health_check.check_interval }}" {% endif %} \
@@ -32,8 +29,3 @@
     {% if http_health_check.port is defined %} --port={{ http_health_check.port }} {% endif %} \
     {% if http_health_check.request_path is defined %} --request-path={{ http_health_check.request_path }} {% endif %} \
     {% if http_health_check.timeout is defined %} --timeout={{ http_health_check.timeout }} {% endif %}
--
-  name: "Delete HTTP health check '{{ http_health_check.name }}'."
-  when: http_health_check.state|default('present') == 'absent' and gcloud_compute_existing_http_health_checks.stdout != '[]'
-  with_items: "{{ gcloud_compute_http_health_checks }}"
-  shell: gloud beta compute http-health-checks delete {{ http_health_check.name }}

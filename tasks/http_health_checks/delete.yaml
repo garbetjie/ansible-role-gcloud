@@ -1,0 +1,10 @@
+---
+-
+  name: "Check if HTTP health check '{{ http_health_check.name }}' exists."
+  register: gcloud_compute_existing_http_health_checks
+  shell: gcloud beta compute http-health-checks list --format json --filter="name = {{ http_health_check.name }}"
+-
+  name: "Delete HTTP health check '{{ http_health_check.name }}'."
+  when: http_health_check.state|default('present') == 'absent' and gcloud_compute_existing_http_health_checks.stdout != '[]'
+  with_items: "{{ gcloud_compute_http_health_checks }}"
+  shell: gloud beta compute http-health-checks delete {{ http_health_check.name }} -q

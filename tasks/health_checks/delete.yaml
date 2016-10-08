@@ -1,0 +1,10 @@
+---
+-
+  name: "Check for existing {{ health_check.type }} health check."
+  register: gcloud_compute_existing_health_check
+  shell: gcloud beta compute health-checks list --format=json --filter="name = {{ health_check.name }}"
+  changed_when: false
+-
+  name: "Delete {{ health_check.type }} health check."
+  when: gcloud_compute_existing_health_check.stdout != '[]' and health_check.state|default('present') == 'absent'
+  shell: gcloud beta compute health-checks delete {{ health_check.name }}

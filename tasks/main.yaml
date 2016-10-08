@@ -1,5 +1,4 @@
 ---
-# Create addresse.
 -
   name: Create reserved addresses.
   with_items: "{{ gcloud_compute_addresses }}"
@@ -15,13 +14,19 @@
   loop_control:
     loop_var: network
 -
-  when: gcloud_compute_health_checks|length > 0
+  name: Manage health checks.
   with_items: "{{ gcloud_compute_health_checks }}"
-  include: health_checks/main.yaml
+  include: health_checks/manage.yaml
+  when: health_check.state|default('present') == 'present'
+  loop_control:
+    loop_var: health_check
 -
-  when: gcloud_compute_http_health_checks|length > 0
+  name: Manage HTTP health checks.
   with_items: "{{ gcloud_compute_http_health_checks }}"
-  include: http_health_checks.yaml
+  include: http_health_checks/manage.yaml
+  when: http_health_check.state|default('present') == 'present'
+  loop_control:
+    loop_var: http_health_check
 -
   name: Manage instance groups.
   when: gcloud_compute_instance_groups|length > 0
@@ -35,6 +40,20 @@
 
 # Delete items.
 
+-
+  name: Delete HTTP health checks.
+  with_items: "{{ gcloud_compute_http_health_checks }}"
+  include: http_health_checks/delete.yaml
+  when: http_health_check.state|default('present') == 'absent'
+  loop_control:
+    loop_var: http_health_check
+-
+  name: Delete health checks.
+  with_items: "{{ gcloud_compute_health_checks }}"
+  include: health_checks/delete.yaml
+  when: health_check.state|default('present') == 'absent'
+  loop_control:
+    loop_var: health_check
 -
   name: Delete networks.
   with_items: "{{ gcloud_compute_networks }}"

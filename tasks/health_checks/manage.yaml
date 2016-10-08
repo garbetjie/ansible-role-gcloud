@@ -1,15 +1,12 @@
 ---
 -
-  set_fact:
-    health_check: "{{ item }}"
--
   name: "Check for existing {{ health_check.type }} health check."
-  register: gcloud_compute_existing_http_health_check
+  register: gcloud_compute_existing_health_check
   changed_when: false
   shell: gcloud beta compute health-checks list --format=json --filter="name = {{ health_check.name }}"
 -
   name: "Create {{ health_check.type }} health check."
-  when: gcloud_compute_existing_http_health_check.stdout == '[]' and health_check.state|default('present') == 'present'
+  when: gcloud_compute_existing_health_check.stdout == '[]'
   shell: |
     gcloud beta compute health-checks create {{ health_check.type }} {{ health_check.name }} \
     {% if health_check.description is defined %} --description="{{ health_check.description }}" {% endif %} \
@@ -22,7 +19,7 @@
     --healthy-threshold={{ health_check.healthy_threshold|default(2) }}
 -
   name: "Update {{ health_check.type }} health check."
-  when: gcloud_compute_existing_http_health_check.stdout != '[]' and health_check.state|default('present') == 'present'
+  when: gcloud_compute_existing_health_check.stdout != '[]'
   shell: |
     gcloud beta compute health-checks update {{ health_check.type }} {{ health_check.name }} \
     {% if health_check.description is defined %} --description="{{ health_check.description }}" {% endif %} \
@@ -33,7 +30,3 @@
     --timeout={{ health_check.timeout|default(5) }}s \
     --unhealthy-threshold={{ health_check.unhealthy_threshold|default(2) }} \
     --healthy-threshold={{ health_check.healthy_threshold|default(2) }}
--
-  name: "Delete {{ health_check.type }} health check."
-  when: gcloud_compute_existing_http_health_check.stdout != '[]' and health_check.state|default('present') == 'absent'
-  shell: gcloud beta compute health-checks delete {{ health_check.name }}
