@@ -1,0 +1,7 @@
+---
+-
+  name: "Delete backend service '{{ backend_service.name }}'"
+  shell: |
+    gcloud beta compute backend-services delete {{ backend_service.name }} -q \
+    {% if backend_service.global is defined and backend_service.global %} --global {% endif %} \
+    {% if backend_service.region is defined %} --region={{ backend_service.region }} {% endif %}

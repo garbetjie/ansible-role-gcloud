@@ -1,0 +1,44 @@
+---
+-
+  set_fact:
+    backend_service: "{{ item }}"
+-
+  name: "Check if backend service '{{ backend_service.name }}' exists."
+  register: gcloud_compute_existing_backend_service
+  shell: gcloud beta compute backend-services list --format=json --filter="name = {{ backend_service.name }}"
+  changed_when: false
+-
+  when: gcloud_compute_existing_backend_service.stdout == '[]' and backend_service.state|default('present') == 'present'
+  include: backend_services/create.yaml
+-
+  when: gcloud_compute_existing_backend_service.stdout != '[]' and backend_service.state|default('present') == 'present'
+  include: backend_services/update.yaml
+-
+  name: "Describe backend service '{{ backend_service.name }}'."
+  when: backend_service.state|default('present') == 'present'
+  register: __gcloud_compute_described_backend_service__
+  shell: gcloud beta compute backend-services describe {{ backend_service.name }} --format=json
+-
+  name: Convert the backend describe result to a dict.
+  when: backend_service.state|default('present') == 'present'
+  set_fact:
+    gcloud_compute_described_backend_service: "{{ __gcloud_compute_described_backend_service__.stdout|from_json }}"
+-
+  name: "Extract already-created backends for backend service '{{ backend_service.name }}'."
+  set_fact:
+    gcloud_compute_described_backend_service_backends: "{{ gcloud_compute_described_backend_service.backends|default([])|map(attribute='group')|map('basename')|list }}"
+-
+  when: backend_service.state|default('present') == 'present' and backend.state|default('present') == 'present' and backend.name not in gcloud_compute_described_backend_service_backends
+  with_items: "{{ backend_service.backends|default([]) }}"
+  include: backend_services/backend-create.yaml
+  loop_control:
+    loop_var: backend
+-
+  when: backend_service.state|default('present') == 'present' and backend.state|default('present') == 'present' and backend.name in gcloud_compute_described_backend_service_backends
+  with_items: "{{ backend_service.backends|default([]) }}"
+  include: backend_services/backend-update.yaml
+  loop_control:
+    loop_var: backend
+-
+  when: gcloud_compute_existing_backend_service.stdout != '[]' and backend_service.state|default('present') == 'absent'
+  include: backend_services/delete.yaml

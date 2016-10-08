@@ -21,3 +21,8 @@
   when: gcloud_compute_instance_groups|length > 0
   with_items: "{{ gcloud_compute_instance_groups }}"
   include: instance_groups.yaml
+-
+  name: Managed backend services.
+  when: gcloud_compute_backend_services|length > 0
+  with_items: "{{ gcloud_compute_backend_services }}"
+  include: backend_services.yaml
