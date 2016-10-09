@@ -1,0 +1,106 @@
+---
+-
+  name: "Check if instance group '{{ instance_group.name }}' exists."
+  register: gcloud_compute_existing_instance_group
+  changed_when: false
+  shell: gcloud beta compute instance-groups list --format=json --filter="name = {{ instance_group.name }}"
+
+
+### UNMANAGED INSTANCE GROUPS
+
+-
+  name: "Create unmanaged instance group '{{ instance_group.name }}'."
+  when: gcloud_compute_existing_instance_group.stdout == '[]' and not instance_group.managed
+  shell: |
+    gcloud beta compute instance-groups unmanaged create {{ instance_group.name }} \
+    {% if instance_group.description is defined %} --description="{{ instance_group.description }}" {% endif %} \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %}
+
+
+### MANAGED INSTANCE GROUPS
+
+-
+  name: "Create managed instance group '{{ instance_group.name }}'."
+  when: gcloud_compute_existing_instance_group.stdout == '[]' and instance_group.managed
+  shell: |
+    gcloud beta compute instance-groups managed create {{ instance_group.name }} \
+    --size={{ instance_group.size }} \
+    --template={{ instance_group.template }} \
+    {% if instance_group.base_instance_name is defined %} --base-instance-name={{ instance_group.base_instance_name }} {% endif %} \
+    {% if instance_group.description is defined %} --description={{ instance_group.description }} {% endif %} \
+    {% if instance_group.initial_delay is defined %} --initial-delay={{ instance_group.initial_delay }}s {% endif %} \
+    {% if instance_group.target_pools is defined %} --target-pool={{ instance_group.target_pools|join(',') }} {% endif %} \
+    {% if instance_group.http_health_check is defined %} --http-health-check={{ instance_group.http_health_check }} {% endif %} \
+    {% if instance_group.https_health_check is defined %} --https-health-check={{ instance_group.https_health_check }} {% endif %} \
+    {% if instance_group.region is defined %} --region={{ instance_group.region }} {% endif %} \
+    {% if instance_group.zone is defined %} --region={{ instance_group.zone }} {% endif %}
+
+# Enable auto-scaling.
+-
+  name: "Enable auto-scaling for managed instance group '{{ instance_group.name }}'."
+  when: instance_group.autoscale is defined and instance_group.autoscale and instance_group.managed
+  shell: |
+    gcloud beta compute instance-groups managed set-autoscaling {{ instance_group.name }} \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_group.region }}" {% endif %} \
+    {% if instance_group.autoscale.min_replicas is defined %} --min-num-replicas="{{ instance_group.autoscale.min_replicas }}" {% endif %} \
+    {% if instance_group.autoscale.max_replicas is defined %} --max-num-replicas="{{ instance_group.autoscale.max_replicas }}" {% endif %} \
+    {% if instance_group.autoscale.cooldown is defined %} --cool-down-period="{{ instance_group.autoscale.cooldown }}" {% endif %} \
+    {% if instance_group.autoscale.custom_metric is defined %} --custom-metric-utilization="{{ instance_group.autoscale.metric_utilization|join(',') }}" {% endif %} \
+    {% if instance_group.autoscale.description is defined %} --description="{{ instance_group.autoscale.description }}" {% endif %} \
+    {% if instance_group.autoscale.scale_cpu is defined %} --scale-based-on-cpu --target-cpu-utilization="{{ instance_group.autoscale.scale_cpu }}" {% endif %} \
+    {% if instance_group.autoscale.scale_load_balancing is defined %} --scale-based-on-load-balancing --target-load-balancing-utilization="{{ instance_group.sautoscale.cale_load_balancing }}" {% endif %} \
+
+# Disable auto-scaling.
+-
+  name: "Disable auto-scaling on managed instance group {{ instance_group.name }}."
+  when: instance_group.autoscale is defined and not instance_group.autoscale and instance_group.managed
+  register: disable_autoscale_result
+  failed_when: "'Deleted [' not in disable_autoscale_result.stderr and 'The managed instance group is not autoscaled' not in disable_autoscale_result.stderr"
+  shell: |
+    gcloud beta compute instance-groups managed stop-autoscaling {{ instance_group.name }} \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}"{% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_group.region }}"{% endif %}
+
+# Resize the instance group.
+-
+  name: "Set size of managed instance group '{{ instance_group.name }}'."
+  when: instance_group.managed and (instance_group.autoscale is not defined or not instance_group.autoscale or (instance_group.autoscale.min_replicas is defined and instance_group.autoscale and instance_group.size >= instance_group.autoscale.min_replicas))
+  shell: |
+    gcloud beta compute instance-groups managed resize {{ instance_group.name }} \
+    --size={{ instance_group.size }} \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_group.region }}" {% endif %}
+
+# Update the instance template.
+-
+  name: "Set instance template of managed instance group '{{ instance_group.name }}'."
+  when: instance_group.managed
+  shell: |
+    gcloud beta compute instance-groups managed set-instance-template {{ instance_group.name }} \
+    --template={{ instance_group.template }} \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_group.region }}" {% endif %}
+
+# Wait until the managed instance group is stable.
+-
+  name: "Wait until managed instance group '{{ instance_group.name }}' is stable."
+  when: instance_group.managed and instance_group.wait|default(false, true)
+  shell: |
+    gcloud beta compute instance-groups managed wait-until-stable {{ instance_group.name }} \
+    {% if instance_group.wait is number %} --timeout={{ instance_group.wait }} {% endif %} \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_gr  oup.region }}" {% endif %}
+
+
+### ALL INSTANCE GROUPS
+
+# Set the named ports.
+-
+  name: "Set named ports on instance group {{ instance_group.name }}"
+  when: instance_group.named_ports is defined
+  shell: |
+    gcloud beta compute instance-groups set-named-ports "{{ instance_group.name }}" \
+    --named-ports="{{ instance_group.named_ports|join(',') }}" \
+    {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}"{% endif %} \
+    {% if instance_group.region is defined %} --region="{{ instance_group.region }}"{% endif %}

@@ -29,17 +29,27 @@
     loop_var: http_health_check
 -
   name: Manage instance groups.
-  when: gcloud_compute_instance_groups|length > 0
   with_items: "{{ gcloud_compute_instance_groups }}"
-  include: instance_groups.yaml
+  include: instance_groups/manage.yaml
+  when: instance_group.state|default('present') == 'present'
+  loop_control:
+    loop_var: instance_group
 -
   name: Managed backend services.
   when: gcloud_compute_backend_services|length > 0
   with_items: "{{ gcloud_compute_backend_services }}"
   include: backend_services.yaml
 
+
 # Delete items.
 
+-
+  name: Delete instance groups.
+  with_items: "{{ gcloud_compute_instance_groups }}"
+  include: instance_groups/delete.yaml
+  when: instance_group.state|default('present') == 'absent'
+  loop_control:
+    loop_var: instance_group
 -
   name: Delete HTTP health checks.
   with_items: "{{ gcloud_compute_http_health_checks }}"

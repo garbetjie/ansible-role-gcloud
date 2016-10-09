@@ -1,7 +1,13 @@
 ---
 -
+  name: "Check if instance group '{{ instance_group.name }}' exists."
+  register: gcloud_compute_existing_instance_group
+  changed_when: false
+  shell: gcloud beta compute instance-groups list --format=json --filter="name = {{ instance_group.name }}"
+
+-
   name: "Delete managed instance group '{{ instance_group.name }}'."
-  when: instance_group.managed
+  when: gcloud_compute_existing_instance_group.stdout != '[]' and instance_group.managed
   shell: |
     gcloud beta compute instance-groups managed delete {{ instance_group.name }} \
     {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %} \
@@ -9,7 +15,7 @@
 
 -
   name: "Delete unmanaged instance group '{{ instance_group.name }}'."
-  when: not instance_group.managed
+  when: gcloud_compute_existing_instance_group.stdout != '[]' and not instance_group.managed
   shell: |
     gcloud beta compute instance-groups unmanaged delete {{ instance_group.name }} \
     {% if instance_group.zone is defined %} --zone="{{ instance_group.zone }}" {% endif %} \
