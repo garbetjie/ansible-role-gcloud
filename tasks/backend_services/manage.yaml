@@ -1,0 +1,108 @@
+---
+-
+  name: "Check if backend service '{{ backend_service.name }}' exists."
+  register: gcloud_compute_existing_backend_service
+  shell: gcloud beta compute backend-services list --format=json --filter="name = {{ backend_service.name }}"
+  changed_when: false
+
+-
+  name: "Create backend service '{{ backend_service.name }}'."
+  when: gcloud_compute_existing_backend_service.stdout == '[]'
+  shell: |
+    gcloud beta compute backend-services create {{ backend_service.name }} \
+    {% if backend_service.global is defined and backend_service.global %} --global {% endif %} \
+    {% if backend_service.region is defined %} --region={{ backend_service.region }} {% endif %} \
+    {% if backend_service.affinity_cookie_ttl is defined %} --affinity-cookie-ttl={{ backend_service.affinity_cookie_ttl }} {% endif %} \
+    {% if backend_service.connection_draining is defined %} --connection-draining-timeout={{ backend_service.connection_draining }} {% endif %} \
+    {% if backend_service.description is defined %} --description={{ backend_service.description }} {% endif %} \
+    {% if backend_service.enable_cdn|default(false) %} --enable-cdn {% endif %} \
+    {% if backend_service.health_checks is defined %} --health-checks={{ backend_service.health_checks|join(',') }} {% endif %} \
+    {% if backend_service.http_health_checks is defined %} --http-health-checks={{ backend_service.http_health_checks|join(',') }} {% endif %} \
+    {% if backend_service.https_health_checks is defined %} --https-health-checks={{ backend_service.https_health_checks|join(',') }} {% endif %} \
+    --load-balancing-scheme={{ backend_service.load_balancing_scheme|default('external')|upper }} \
+    --port-name={{ backend_service.port_name|default('http') }} \
+    --protocol={{ backend_service.protocol|upper }} \
+    --session-affinity={{ backend_service.session_affinity|default('none')|upper }} \
+    --timeout={{ backend_service.timeout|default('10s') }} \
+    {% if backend_service.port_name is defined %} --https-health-checks={{ backend_service.https_health_checks|join(',') }} {% endif %}
+
+-
+  name: "Update backend service '{{ backend_service.name }}'."
+  when: gcloud_compute_existing_backend_service.stdout != '[]'
+  shell: |
+    gcloud beta compute backend-services update {{ backend_service.name }} \
+    {% if backend_service.global is defined and backend_service.global %} --global {% endif %} \
+    {% if backend_service.region is defined %} --region={{ backend_service.region }} {% endif %} \
+    {% if backend_service.affinity_cookie_ttl is defined %} --affinity-cookie-ttl={{ backend_service.affinity_cookie_ttl }} {% endif %} \
+    {% if backend_service.connection_draining is defined %} --connection-draining-timeout={{ backend_service.connection_draining }} {% endif %} \
+    {% if backend_service.description is defined %} --description={{ backend_service.description }} {% endif %} \
+    {% if backend_service.enable_cdn|default(false) %} --enable-cdn {% endif %} \
+    {% if backend_service.health_checks is defined %} --health-checks={{ backend_service.health_checks|join(',') }} {% endif %} \
+    {% if backend_service.http_health_checks is defined %} --http-health-checks={{ backend_service.http_health_checks|join(',') }} {% endif %} \
+    {% if backend_service.https_health_checks is defined %} --https-health-checks={{ backend_service.https_health_checks|join(',') }} {% endif %} \
+    --port-name={{ backend_service.port_name|default('http') }} \
+    --protocol={{ backend_service.protocol|upper }} \
+    --session-affinity={{ backend_service.session_affinity|default('none')|upper }} \
+    --timeout={{ backend_service.timeout|default('10s') }} \
+    {% if backend_service.port_name is defined %} --https-health-checks={{ backend_service.https_health_checks|join(',') }} {% endif %}
+
+
+### MANAGE BACKENDS
+-
+  name: "Describe backend service '{{ backend_service.name }}'."
+  register: __gcloud_compute_described_backend_service__
+  shell: gcloud beta compute backend-services describe {{ backend_service.name }} --format=json
+-
+  name: Convert the backend describe result to a dict.
+  set_fact:
+    gcloud_compute_described_backend_service: "{{ __gcloud_compute_described_backend_service__.stdout|from_json }}"
+-
+  name: "Extract already-created backends for backend service '{{ backend_service.name }}'."
+  set_fact:
+    gcloud_compute_described_backend_service_backends: "{{ gcloud_compute_described_backend_service.backends|default([])|map(attribute='group')|map('basename')|list }}"
+
+-
+  name: "Create backend in backend service '{{ backend_service.name }}'."
+  when: backend.state|default('present') == 'present' and backend.name not in gcloud_compute_described_backend_service_backends
+  with_items: "{{ backend_service.backends|default([]) }}"
+  loop_control:
+    loop_var: backend
+  shell: |
+    gcloud beta compute backend-services add-backend {{ backend_service.name }} \
+    --instance-group={{ backend.instance_group }} \
+    --description="backend.description|default('Backend for backend service \'{{ backend_service.name }}\'') [autogen:{{ range(0, 500)|random }}]" \
+    {% if backend.balancing_mode is defined %} --balancing-mode={{ backend.balancing_mode|upper }} {% endif %} \
+    {% if backend_service.global is defined and backend_service.global %} --global {% endif %} \
+    {% if backend_service.region is defined %} --region={{ backend_service.region }} {% endif %} \
+    {% if backend.zone is defined %} --instance-group-zone={{ backend.zone }} {% endif %} \
+    {% if backend.region is defined %} --instance-group-region={{ backend.region }} {% endif %}
+
+-
+  name: "Update backend in backend service '{{ backend_service.name }}'."
+  when: backend.state|default('present') == 'present' and backend.name in gcloud_compute_described_backend_service_backends
+  with_items: "{{ backend_service.backends|default([]) }}"
+  loop_control:
+    loop_var: backend
+  shell: |
+    gcloud beta compute backend-services update-backend {{ backend_service.name }} \
+    --instance-group={{ backend.instance_group }} \
+    --description="backend.description|default('Backend for backend service \'{{ backend_service.name }}\'') [autogen:{{ range(0, 500)|random }}]" \
+    {% if backend.balancing_mode is defined %} --balancing-mode={{ backend.balancing_mode|upper }} {% endif %} \
+    {% if backend_service.global|default(false) %} --global {% endif %} \
+    {% if backend_service.region|default(false) %} --region={{ backend_service.region }} {% endif %} \
+    {% if backend.zone is defined %} --instance-group-zone={{ backend.zone }} {% endif %} \
+    {% if backend.region is defined %} --instance-group-region={{ backend.region }} {% endif %}
+
+-
+  name: "Remove backend from backend service '{{ backend_service.name }}'."
+  when: backend.state|default('present') == 'absent' and backend.name in gcloud_compute_described_backend_service_backends
+  with_items: "{{ backend_service.backends|default([]) }}"
+  loop_control:
+    loop_var: backend
+  shell: |
+    gcloud beta compute backend-services update-backend {{ backend_service.name }} \
+    --instance-group={{ backend.instance_group }} \
+    {% if backend_service.global|default(false) %} --global {% endif %} \
+    {% if backend_service.region|default(false) %} --region={{ backend_service.region }} {% endif %} \
+    {% if backend.zone is defined %} --instance-group-zone={{ backend.zone }} {% endif %} \
+    {% if backend.region is defined %} --instance-group-region={{ backend.region }} {% endif %}

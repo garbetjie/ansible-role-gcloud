@@ -35,14 +35,23 @@
   loop_control:
     loop_var: instance_group
 -
-  name: Managed backend services.
-  when: gcloud_compute_backend_services|length > 0
+  name: Manage backend services.
   with_items: "{{ gcloud_compute_backend_services }}"
-  include: backend_services.yaml
+  include: backend_services/manage.yaml
+  when: backend_service.state|default('present') == 'present'
+  loop_control:
+    loop_var: backend_service
 
 
 # Delete items.
 
+-
+  name: Manage backend services.
+  with_items: "{{ gcloud_compute_backend_services }}"
+  include: backend_services/delete.yaml
+  when: backend_service.state|default('present') == 'absent'
+  loop_control:
+    loop_var: backend_service
 -
   name: Delete instance groups.
   with_items: "{{ gcloud_compute_instance_groups }}"
